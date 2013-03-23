@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Composition;
+using System.Diagnostics;
 using System.Diagnostics.Contracts;
 using System.Linq;
 using System.Linq.Expressions;
@@ -36,7 +37,8 @@ namespace LyphTEC.Repository.MongoDB
         /// </summary>
         /// <param name="db">MongoDatabase to use</param>
         /// <param name="initDefaultOptions">Whether to call <see cref="InitMongo"/> on instantiation. Default is true. This allows you to override the default mappings, serialization options, and entity Id representation.</param>
-        public MongoRepository(MongoDatabase db, bool initDefaultOptions = true)
+        [ImportingConstructor]
+        public MongoRepository([Import]MongoDatabase db, [Import("InitMongoDefaultOptions", AllowDefault = true)]bool initDefaultOptions = true)
         {
             Contract.Requires<ArgumentNullException>(db != null);
 
@@ -186,6 +188,9 @@ namespace LyphTEC.Repository.MongoDB
         #endregion
         
         #region IRepositoryAsync<TEntity> Members
+
+        // TODO: Async API are currently only TaskCompletionSource wrappers around the sync API. When official MongoDB CSharp driver supports true async, we will use that instead
+        // See https://jira.mongodb.org/browse/CSHARP-138 for details
 
         public virtual Task<IQueryable<TEntity>> AllAsync(Expression<Func<TEntity, bool>> predicate = null)
         {
@@ -358,6 +363,8 @@ namespace LyphTEC.Repository.MongoDB
 
             try
             {
+                Debug.WriteLine("SaveAsync() ThreadId: {0}", System.Threading.Thread.CurrentThread.ManagedThreadId);
+
                 tcs.SetResult(Save(entity));
             }
             catch (Exception ex)
@@ -380,15 +387,20 @@ namespace LyphTEC.Repository.MongoDB
             if (_initialized)
                 return;
 
-            BsonClassMap.RegisterClassMap<Entity>(cm =>
-                                                      {
-                                                          cm.AutoMap();
-                                                          cm.SetIdMember(cm.GetMemberMap(x => x.Id));
-                                                          cm.IdMemberMap.SetRepresentation(BsonType.ObjectId).SetIdGenerator(ObjectIdGenerator.Instance);
-                                                          cm.SetIgnoreExtraElements(true);
-                                                          cm.SetIgnoreExtraElementsIsInherited(true);
-                                                          cm.SetIsRootClass(true);
-                                                      });
+            if (!BsonClassMap.IsClassMapRegistered(typeof (Entity)))
+            {
+                BsonClassMap.RegisterClassMap<Entity>(cm =>
+                                                          {
+                                                              cm.AutoMap();
+                                                              cm.SetIdMember(cm.GetMemberMap(x => x.Id));
+                                                              cm.IdMemberMap.SetRepresentation(BsonType.ObjectId).SetIdGenerator(ObjectIdGenerator.Instance);
+                                                              cm.SetIgnoreExtraElements(true);
+                                                              cm.SetIgnoreExtraElementsIsInherited(true);
+                                                              cm.SetIsRootClass(true);
+                                                              cm.GetMemberMap(x => x.DateCreatedUtc).SetSerializationOptions(new DateTimeSerializationOptions(DateTimeKind.Utc, BsonType.Document));
+                                                              cm.GetMemberMap(x => x.DateUpdatedUtc).SetSerializationOptions(new DateTimeSerializationOptions(DateTimeKind.Utc, BsonType.Document));
+                                                          });
+            }
 
             BsonSerializer.UseNullIdChecker = true;
             BsonSerializer.UseZeroIdChecker = true;
