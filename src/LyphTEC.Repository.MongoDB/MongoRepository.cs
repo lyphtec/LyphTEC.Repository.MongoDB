@@ -6,9 +6,9 @@ using System.Diagnostics.Contracts;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
-using System.Text;
 using System.Threading.Tasks;
 using LyphTEC.Repository.Extensions;
+using LyphTEC.Repository.MongoDB.Extensions;
 using MongoDB.Bson;
 using MongoDB.Bson.Serialization;
 using MongoDB.Bson.Serialization.IdGenerators;
@@ -137,12 +137,14 @@ namespace LyphTEC.Repository.MongoDB
 
         public virtual TEntity One(object id)
         {
-            return _col.FindOneByIdAs<TEntity>(new BsonObjectId(id.ToString()));
+            return _col.FindOneByIdAs<TEntity>(id.ToBsonObjectId());
         }
 
         public virtual void Remove(object id)
         {
-            _col.Remove(Query.EQ("_id", new BsonObjectId(id.ToString())));
+            var result = _col.Remove(Query.EQ("_id", id.ToBsonObjectId()), WriteConcern.Acknowledged);
+
+            LogErrorResult("Remove()", result);
         }
 
         public virtual void Remove(TEntity entity)
@@ -152,13 +154,18 @@ namespace LyphTEC.Repository.MongoDB
 
         public virtual void RemoveAll()
         {
-            _col.RemoveAll();
+            var result = _col.RemoveAll();
+
+            LogErrorResult("RemoveAll()", result);
         }
 
         public virtual void RemoveByIds(System.Collections.IEnumerable ids)
         {
-            var query = Query.In("_id", ids.Cast<object>().Select(x => new BsonObjectId(x.ToString())));
-            _col.Remove(query);
+            var query = Query.In("_id", ids.Cast<object>().Select(x => x.ToBsonObjectId()));
+            
+            var result = _col.Remove(query);
+
+            LogErrorResult("RemoveByIds()", result);
         }
 
         public virtual TEntity Save(TEntity entity)
@@ -166,7 +173,11 @@ namespace LyphTEC.Repository.MongoDB
             if (entity == null)
                 return null;
 
-            _col.Save(entity);
+            var result = _col.Save(entity);
+            LogErrorResult("Save()", result);
+
+            if (!result.Ok && result.HasLastErrorMessage)
+                throw new Exception(string.Format("Save() ERROR: {0}", result.LastErrorMessage));
 
             return entity;
         }
@@ -179,7 +190,10 @@ namespace LyphTEC.Repository.MongoDB
             // InsertBatch can be more efficient
             var toInsert = entities.Where(x => x.Id == null);
             if (toInsert.Any())
-                _col.InsertBatch(toInsert);
+            {
+                var results = _col.InsertBatch(toInsert);
+                results.ForEach(x => LogErrorResult("SaveAll()", x));
+            }
 
             // Loop thru & save the rest
             entities.Where(x => x.Id != null).ForEach(x => Save(x));
@@ -377,14 +391,18 @@ namespace LyphTEC.Repository.MongoDB
 
         #endregion
 
-        private static bool _initialized = false;
+// ReSharper disable StaticFieldInGenericType
+// ReSharper disable InconsistentNaming
+        private static bool __initialized = false;
+// ReSharper restore InconsistentNaming
+// ReSharper restore StaticFieldInGenericType
 
         /// <summary>
         /// Configures default Mongo mappings and serialization options
         /// </summary>
         public static void InitMongo()
         {
-            if (_initialized)
+            if (__initialized)
                 return;
 
             if (!BsonClassMap.IsClassMapRegistered(typeof (Entity)))
@@ -409,7 +427,13 @@ namespace LyphTEC.Repository.MongoDB
             // Also from official docs : http://www.mongodb.org/display/DOCS/CSharp+Driver+Serialization+Tutorial#CSharpDriverSerializationTutorial-DateTimeSerializationOptions
             DateTimeSerializationOptions.Defaults = new DateTimeSerializationOptions(DateTimeKind.Utc, BsonType.Document);
 
-            _initialized = true;
+            __initialized = true;
+        }
+
+        private static void LogErrorResult(string methodName, GetLastErrorResult result)
+        {
+            if (!result.Ok && result.HasLastErrorMessage)
+                Trace.TraceError("MongoRepository.{0} ERROR: {1}", methodName, result.LastErrorMessage);
         }
     }
 }
