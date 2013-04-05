@@ -5,7 +5,6 @@ using System.Diagnostics;
 using System.Diagnostics.Contracts;
 using System.Linq;
 using System.Linq.Expressions;
-using System.Reflection;
 using System.Threading.Tasks;
 using LyphTEC.Repository.Extensions;
 using LyphTEC.Repository.MongoDB.Extensions;
@@ -37,22 +36,23 @@ namespace LyphTEC.Repository.MongoDB
         /// </summary>
         /// <param name="db">MongoDatabase to use</param>
         /// <param name="initDefaultOptions">Whether to call <see cref="InitMongo"/> on instantiation. Default is true. This allows you to override the default mappings, serialization options, and entity Id representation.</param>
+        /// <param name="extraInitOptions">Allows you to specify an additional operation to perform after default init procedure. Note that for this to be invoked, the <see cref="initDefaultOptions"/> must be set to true.</param>
         [ImportingConstructor]
-        public MongoRepository([Import]MongoDatabase db, [Import("InitMongoDefaultOptions", AllowDefault = true)]bool initDefaultOptions = true)
+        public MongoRepository([Import]MongoDatabase db, [Import("InitMongoDefaultOptions", AllowDefault = true)]bool initDefaultOptions = true, [Import("ExtraMongoInitAction", AllowDefault = true)]Action extraInitOptions = null)
         {
             Contract.Requires<ArgumentNullException>(db != null);
 
             _db = db;
-            _col = _db.GetCollection<TEntity>(typeof (TEntity).Name);
+            _col = _db.GetCollection<TEntity>(typeof(TEntity).Name);
 
             if (initDefaultOptions)
-                InitMongo();
+                InitMongo(extraInitOptions);
         }
 
         /// <summary>
         /// Gets the MongoDatabase
         /// </summary>
-        internal MongoDatabase MongoDatabase { get { return _db; } }
+        public MongoDatabase MongoDatabase { get { return _db; } }
 
         /// <summary>
         /// Gets the MongoCollection{TEntity}
@@ -65,52 +65,16 @@ namespace LyphTEC.Repository.MongoDB
         /// <param name="fieldExpression"></param>
         public void EnsureIndex(params Expression<Func<TEntity, object>>[] fieldExpression)
         {
-            var propNames = new List<string>();
-
-            var counter = 1;
-            foreach (var pi in fieldExpression.Select(GetPropertyInfo))
-            {
-                if (pi == null)
-                    throw new InvalidOperationException(string.Format("Expression {0} must be a property reference", counter));
-
-                propNames.Add(pi.Name);
-
-                counter++;
-            }
-
-            _col.EnsureIndex(propNames.ToArray());
-        }
-
-        // ideas from http://stackoverflow.com/questions/671968/retrieving-property-name-from-lambda-expression
-        static PropertyInfo GetPropertyInfo(Expression exp)
-        {
-            var lamb = exp as LambdaExpression;
-            if (lamb == null)
-                throw new InvalidOperationException("exp must be a LambdaExpression");
-
-            var body = lamb.Body as MemberExpression;
-
-            if (body == null)
-            {
-                var ubody = (UnaryExpression)lamb.Body;
-                body = ubody.Operand as MemberExpression;
-            }
-
-            return body == null ? null : body.Member as PropertyInfo;
+            _col.EnsureIndex(fieldExpression);
         }
 
         /// <summary>
-        /// Ensures that the desired unique index exists and creates it if it does not.
+        /// Ensures that the desired unique index exists on one or multiple properties and creates it if it does not.
         /// </summary>
         /// <param name="fieldExpression"></param>
-        public void EnsureUniqueIndex(Expression<Func<TEntity, object>> fieldExpression)
+        public void EnsureUniqueIndex(params Expression<Func<TEntity, object>>[] fieldExpression)
         {
-            var pi = GetPropertyInfo(fieldExpression);
-
-            if (pi == null)
-                throw new InvalidOperationException("Expression must be a property reference");
-
-            _col.EnsureIndex(IndexKeys.Ascending(pi.Name), IndexOptions.SetUnique(true));
+            _col.EnsureUniqueIndex(fieldExpression);
         }
 
         #region IRepository<TEntity> Members
@@ -154,6 +118,7 @@ namespace LyphTEC.Repository.MongoDB
 
         public virtual void RemoveAll()
         {
+            // TODO: Use Drop()?
             var result = _col.RemoveAll();
 
             LogErrorResult("RemoveAll()", result);
@@ -162,7 +127,7 @@ namespace LyphTEC.Repository.MongoDB
         public virtual void RemoveByIds(System.Collections.IEnumerable ids)
         {
             var query = Query.In("_id", ids.Cast<object>().Select(x => x.ToBsonObjectId()));
-            
+
             var result = _col.Remove(query);
 
             LogErrorResult("RemoveByIds()", result);
@@ -200,7 +165,7 @@ namespace LyphTEC.Repository.MongoDB
         }
 
         #endregion
-        
+
         #region IRepositoryAsync<TEntity> Members
 
         // TODO: Async API are currently only TaskCompletionSource wrappers around the sync API. When official MongoDB CSharp driver supports true async, we will use that instead
@@ -391,27 +356,26 @@ namespace LyphTEC.Repository.MongoDB
 
         #endregion
 
-// ReSharper disable StaticFieldInGenericType
-// ReSharper disable InconsistentNaming
+        // ReSharper disable StaticFieldInGenericType
+        // ReSharper disable InconsistentNaming
         private static bool __initialized = false;
-// ReSharper restore InconsistentNaming
-// ReSharper restore StaticFieldInGenericType
+        // ReSharper restore InconsistentNaming
+        // ReSharper restore StaticFieldInGenericType
 
         /// <summary>
         /// Configures default Mongo mappings and serialization options
         /// </summary>
-        public static void InitMongo()
+        public static void InitMongo(Action extraInitOptions = null)
         {
             if (__initialized)
                 return;
 
-            if (!BsonClassMap.IsClassMapRegistered(typeof (Entity)))
+            if (!BsonClassMap.IsClassMapRegistered(typeof(Entity)))
             {
                 BsonClassMap.RegisterClassMap<Entity>(cm =>
                                                           {
                                                               cm.AutoMap();
                                                               cm.SetIdMember(cm.GetMemberMap(x => x.Id));
-                                                              cm.IdMemberMap.SetRepresentation(BsonType.ObjectId).SetIdGenerator(ObjectIdGenerator.Instance);
                                                               cm.SetIgnoreExtraElements(true);
                                                               cm.SetIgnoreExtraElementsIsInherited(true);
                                                               cm.SetIsRootClass(true);
@@ -426,6 +390,17 @@ namespace LyphTEC.Repository.MongoDB
             // DateTime serialization handling & precision in MongoDB : http://alexmg.com/post/2011/09/30/DateTime-precision-with-MongoDB-and-the-C-Driver.aspx 
             // Also from official docs : http://www.mongodb.org/display/DOCS/CSharp+Driver+Serialization+Tutorial#CSharpDriverSerializationTutorial-DateTimeSerializationOptions
             DateTimeSerializationOptions.Defaults = new DateTimeSerializationOptions(DateTimeKind.Utc, BsonType.Document);
+
+            // Invoke if specified
+            if (extraInitOptions != null)
+                extraInitOptions();
+            
+            // default Id strategy if not specified by extraInitOptions
+            var rootMap = BsonClassMap.GetRegisteredClassMaps().SingleOrDefault(x => x.ClassType == typeof(Entity));
+
+            if (rootMap != null && rootMap.IdMemberMap.IdGenerator == null)
+                rootMap.IdMemberMap.SetRepresentation(BsonType.ObjectId).SetIdGenerator(ObjectIdGenerator.Instance);
+
 
             __initialized = true;
         }

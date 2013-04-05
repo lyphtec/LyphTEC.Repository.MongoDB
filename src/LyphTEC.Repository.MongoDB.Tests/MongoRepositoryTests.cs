@@ -8,6 +8,8 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using LyphTEC.Repository.MongoDB.Tests.Extensions;
+using MongoDB.Bson;
+using MongoDB.Bson.Serialization;
 using MongoDB.Driver;
 using ServiceStack.Text;
 using Xunit;
@@ -19,6 +21,7 @@ namespace LyphTEC.Repository.MongoDB.Tests
     public class MongoRepositoryTests : CommonRepositoryTest,  IUseFixture<CommonRepositoryFixture>
     {
         private MongoRepository<Customer> _repo;
+        private MongoDatabase _db;
 
         #region IUseFixture<MongoDBFixture> Members
 
@@ -28,9 +31,9 @@ namespace LyphTEC.Repository.MongoDB.Tests
             var client = new MongoClient(url);
             var server = client.GetServer();
 
-            var db = server.GetDatabase(url.DatabaseName);
+            _db = server.GetDatabase(url.DatabaseName);
 
-            _repo = new MongoRepository<Customer>(db);
+            _repo = new MongoRepository<Customer>(_db);
 
             CustomerRepo = _repo;
             CustomerRepoAsync = _repo;
@@ -223,6 +226,41 @@ namespace LyphTEC.Repository.MongoDB.Tests
             Assert.Equal(4, CustomerRepo.Count());
             
             DumpRepo();
+        }
+
+        [Fact]
+        public void Init_WithExtraOptions_Ok()
+        {
+            Action extraInit = () =>
+                                   {
+                                       if (!BsonClassMap.IsClassMapRegistered(typeof (Employee)))
+                                       {
+                                           BsonClassMap.RegisterClassMap<Employee>();
+                                       }
+
+                                       // specify base Entity Id strategy to use IntIdGenerator instead of default ObjectIdGenerator
+                                       var rootMap = BsonClassMap.GetRegisteredClassMaps().SingleOrDefault(x => x.ClassType == typeof (Entity));
+                                       if (rootMap != null)
+                                           rootMap.IdMemberMap.SetRepresentation(BsonType.Int32).SetIdGenerator(IntIdGenerator.Instance);
+                                   };
+
+            var repo = new MongoRepository<Employee>(_db, extraInitOptions: extraInit);
+            
+            // reset 1st
+            repo.MongoCollection.Drop();
+            repo.MongoDatabase.GetCollection("IDSequence").Drop();
+
+            var emp = new Employee
+                          {
+                              FirstName = "Jack",
+                              LastName = "Russell"
+                          };
+
+            repo.Save(emp);
+
+            Assert.Equal(1, emp.Id);
+            
+            repo.All().PrintDump();
         }
     }
 }
