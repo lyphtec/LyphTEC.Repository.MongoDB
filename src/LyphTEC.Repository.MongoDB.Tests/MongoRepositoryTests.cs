@@ -1,20 +1,16 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Composition;
-using System.Composition.Convention;
 using System.Composition.Hosting;
-using System.Diagnostics;
 using System.Linq;
-using System.Text;
 using System.Threading.Tasks;
 using LyphTEC.Repository.MongoDB.Tests.Extensions;
+using LyphTEC.Repository.Tests;
+using LyphTEC.Repository.Tests.Domain;
 using MongoDB.Bson;
 using MongoDB.Bson.Serialization;
 using MongoDB.Driver;
 using ServiceStack.Text;
 using Xunit;
-using LyphTEC.Repository.Tests;
-using LyphTEC.Repository.Tests.Domain;
 
 namespace LyphTEC.Repository.MongoDB.Tests
 {
