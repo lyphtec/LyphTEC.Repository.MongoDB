@@ -11,6 +11,6 @@ using System.Runtime.InteropServices;
 
 [assembly: ComVisible(false)]
 
-[assembly: AssemblyVersion("0.7.1")]    // semver.org
-[assembly: AssemblyInformationalVersion("0.7.1")]   // NuGet will use this first for version info.. we want to keep the 3 digit format common to SemVer
+[assembly: AssemblyVersion("0.7.2")]    // semver.org
+[assembly: AssemblyInformationalVersion("0.7.2")]   // NuGet will use this first for version info.. we want to keep the 3 digit format common to SemVer
 [assembly: AssemblyFileVersion("1.0.0.0")]
