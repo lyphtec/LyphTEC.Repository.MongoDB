@@ -97,9 +97,9 @@
     <CodeContractsAnalysisWarningLevel>0</CodeContractsAnalysisWarningLevel>
   </PropertyGroup>
   <ItemGroup>
-    <Reference Include="LyphTEC.Repository, Version=0.6.5.0, Culture=neutral, processorArchitecture=MSIL">
+    <Reference Include="LyphTEC.Repository, Version=0.7.0.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\packages\LyphTEC.Repository.0.6.5\lib\net45\LyphTEC.Repository.dll</HintPath>
+      <HintPath>..\packages\LyphTEC.Repository.0.7.0\lib\net45\LyphTEC.Repository.dll</HintPath>
     </Reference>
     <Reference Include="MongoDB.Bson, Version=1.8.2.34, Culture=neutral, PublicKeyToken=f686731cfb9cc103, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
