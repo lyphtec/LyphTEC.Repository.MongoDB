@@ -33,9 +33,9 @@
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
   <ItemGroup>
-    <Reference Include="LyphTEC.Repository, Version=0.7.0.0, Culture=neutral, processorArchitecture=MSIL">
+    <Reference Include="LyphTEC.Repository, Version=0.7.1.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\packages\LyphTEC.Repository.0.7.0\lib\net45\LyphTEC.Repository.dll</HintPath>
+      <HintPath>..\packages\LyphTEC.Repository.0.7.1\lib\net45\LyphTEC.Repository.dll</HintPath>
     </Reference>
     <Reference Include="LyphTEC.Repository.Tests, Version=0.7.0.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
@@ -51,7 +51,7 @@
     </Reference>
     <Reference Include="ServiceStack.Text, Version=3.9.59.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\packages\ServiceStack.Text.3.9.59\lib\net35\ServiceStack.Text.dll</HintPath>
+      <HintPath>..\packages\ServiceStack.Text.3.9.62\lib\net35\ServiceStack.Text.dll</HintPath>
     </Reference>
     <Reference Include="System" />
     <Reference Include="System.Composition.AttributedModel">
