@@ -60,21 +60,21 @@ namespace LyphTEC.Repository.MongoDB
         public MongoCollection<TEntity> MongoCollection { get { return _col; } }
 
         /// <summary>
-        /// Ensures collection has indexes on specified properties (no magic strings version)
+        /// Creates indexes for specified properties (no magic strings version).
         /// </summary>
         /// <param name="fieldExpression"></param>
-        public void EnsureIndex(params Expression<Func<TEntity, object>>[] fieldExpression)
+        public void CreateIndex(params Expression<Func<TEntity, object>>[] fieldExpression)
         {
-            _col.EnsureIndex(fieldExpression);
+            _col.CreateIndex(fieldExpression);
         }
 
         /// <summary>
-        /// Ensures that the desired unique index exists on one or multiple properties and creates it if it does not.
+        /// Creates unique indexes on one or multiple properties.
         /// </summary>
         /// <param name="fieldExpression"></param>
-        public void EnsureUniqueIndex(params Expression<Func<TEntity, object>>[] fieldExpression)
+        public void CreateUniqueIndex(params Expression<Func<TEntity, object>>[] fieldExpression)
         {
-            _col.EnsureUniqueIndex(fieldExpression);
+            _col.CreateUniqueIndex(fieldExpression);
         }
 
         #region IRepository<TEntity> Members

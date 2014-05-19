@@ -40,11 +40,11 @@ namespace LyphTEC.Repository.MongoDB.Extensions
         }
 
         /// <summary>
-        /// Ensures collection has indexes on specified properties (no magic strings version)
+        /// Creates indexes on specified properties (no magic strings version).
         /// </summary>
         /// <param name="collection"></param>
         /// <param name="fieldExpression"></param>
-        public static void EnsureIndex<T>(this MongoCollection<T> collection, params Expression<Func<T, object>>[] fieldExpression) where T : class
+        public static void CreateIndex<T>(this MongoCollection<T> collection, params Expression<Func<T, object>>[] fieldExpression) where T : class
         {
             var propNames = new List<string>();
 
@@ -59,15 +59,15 @@ namespace LyphTEC.Repository.MongoDB.Extensions
                 counter++;
             }
 
-            collection.EnsureIndex(propNames.ToArray());
+            collection.CreateIndex(propNames.ToArray());
         }
 
         /// <summary>
-        /// Ensures that the desired unique index exists on one or multiple properties, and creates it if it does not.
+        /// Creates unique indexes on one or multiple properties.
         /// </summary>
         /// <param name="collection"></param>
         /// <param name="fieldExpression"></param>
-        public static void EnsureUniqueIndex<T>(this MongoCollection<T> collection, params Expression<Func<T, object>>[] fieldExpression) where T : class
+        public static void CreateUniqueIndex<T>(this MongoCollection<T> collection, params Expression<Func<T, object>>[] fieldExpression) where T : class
         {
             var propNames = new List<string>();
 
@@ -82,7 +82,7 @@ namespace LyphTEC.Repository.MongoDB.Extensions
                 counter++;
             }
 
-            collection.EnsureIndex(IndexKeys.Ascending(propNames.ToArray()), IndexOptions.SetUnique(true));
+            collection.CreateIndex(IndexKeys.Ascending(propNames.ToArray()), IndexOptions.SetUnique(true));
         }
     }
 }
