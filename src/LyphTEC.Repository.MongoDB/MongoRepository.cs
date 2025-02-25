@@ -12,6 +12,7 @@ using MongoDB.Bson;
 using MongoDB.Bson.Serialization;
 using MongoDB.Bson.Serialization.IdGenerators;
 using MongoDB.Bson.Serialization.Options;
+using MongoDB.Bson.Serialization.Serializers;
 using MongoDB.Driver;
 using MongoDB.Driver.Builders;
 using MongoDB.Driver.Linq;
@@ -141,7 +142,7 @@ namespace LyphTEC.Repository.MongoDB
             var result = _col.Save(entity);
             LogErrorResult("Save()", result);
 
-            if (!result.Ok && result.HasLastErrorMessage)
+            if (result.HasLastErrorMessage)
                 throw new Exception(string.Format("Save() ERROR: {0}", result.LastErrorMessage));
 
             return entity;
@@ -376,11 +377,11 @@ namespace LyphTEC.Repository.MongoDB
                                                           {
                                                               cm.AutoMap();
                                                               cm.SetIdMember(cm.GetMemberMap(x => x.Id));
+                                                              cm.GetMemberMap(x => x.DateCreatedUtc).SetSerializer(new DateTimeSerializer(DateTimeKind.Utc, BsonType.Document));
+                                                              cm.GetMemberMap(x => x.DateUpdatedUtc).SetSerializer(new DateTimeSerializer(DateTimeKind.Utc, BsonType.Document));
                                                               cm.SetIgnoreExtraElements(true);
                                                               cm.SetIgnoreExtraElementsIsInherited(true);
                                                               cm.SetIsRootClass(true);
-                                                              cm.GetMemberMap(x => x.DateCreatedUtc).SetSerializationOptions(new DateTimeSerializationOptions(DateTimeKind.Utc, BsonType.Document));
-                                                              cm.GetMemberMap(x => x.DateUpdatedUtc).SetSerializationOptions(new DateTimeSerializationOptions(DateTimeKind.Utc, BsonType.Document));
                                                           });
             }
 
@@ -389,7 +390,7 @@ namespace LyphTEC.Repository.MongoDB
 
             // DateTime serialization handling & precision in MongoDB : http://alexmg.com/post/2011/09/30/DateTime-precision-with-MongoDB-and-the-C-Driver.aspx 
             // Also from official docs : http://www.mongodb.org/display/DOCS/CSharp+Driver+Serialization+Tutorial#CSharpDriverSerializationTutorial-DateTimeSerializationOptions
-            DateTimeSerializationOptions.Defaults = new DateTimeSerializationOptions(DateTimeKind.Utc, BsonType.Document);
+            // DateTimeSerializationOptions.Defaults = new DateTimeSerializationOptions(DateTimeKind.Utc, BsonType.Document);
 
             // Invoke if specified
             if (extraInitOptions != null)
@@ -399,15 +400,14 @@ namespace LyphTEC.Repository.MongoDB
             var rootMap = BsonClassMap.GetRegisteredClassMaps().SingleOrDefault(x => x.ClassType == typeof(Entity));
 
             if (rootMap != null && rootMap.IdMemberMap.IdGenerator == null)
-                rootMap.IdMemberMap.SetRepresentation(BsonType.ObjectId).SetIdGenerator(ObjectIdGenerator.Instance);
-
+                rootMap.IdMemberMap.SetIdGenerator(ObjectIdGenerator.Instance);
 
             __initialized = true;
         }
 
-        private static void LogErrorResult(string methodName, GetLastErrorResult result)
+        private static void LogErrorResult(string methodName, WriteConcernResult result)
         {
-            if (!result.Ok && result.HasLastErrorMessage)
+            if (result.HasLastErrorMessage)
                 Trace.TraceError("MongoRepository.{0} ERROR: {1}", methodName, result.LastErrorMessage);
         }
     }
